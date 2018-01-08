@@ -1,18 +1,15 @@
 library(keras)
 library(reticulate)
-library(here)
 
-test_img_path <- "n02510455_1000.JPEG" 
+test_img_path <- "data/train/n02510455/n02510455_1000.JPEG" 
 
 img <- image_load(test_img_path)
 img
 img_array <- image_to_array(img)
-dim(img_array)
-img_array <- array_reshape(img_array, c(1, dim(img_array)))
-dim(img_array)                           
+dim(img_array)                    
 
 img_array <- img_array/255
-plot(as.raster(img_array[1, , , ]))
+plot(as.raster(img_array))
 
 plot_channel <- function(channel) {
   rotate <- function(x) t(apply(x, 2, rev))
