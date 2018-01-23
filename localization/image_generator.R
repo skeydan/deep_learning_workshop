@@ -83,7 +83,7 @@ generator <- function(type = "train", two_outputs = FALSE, debug = FALSE, incept
     if (!two_outputs) {
       list(x,y)
     } else {
-      list(x, list(y[ ,1], y[ ,2:4]))
+      list(x, list(y[ ,1], y[ ,2:5]))
     }
    
   }

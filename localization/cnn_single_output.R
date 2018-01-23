@@ -11,11 +11,16 @@ model_exists <- FALSE
 model_name <- "cnn_single_output.hdf5"
 
 yhat_size <- if (length(image_classes) == 2) 1 + 4 else (length(image_classes) + 4)
-num_epochs <- 1
+num_epochs <- 100
 
 c(train_gen, train_total) %<-% generator(type = "train")
+attr(train_gen, "name") <- "train"
+
 c(valid_gen, valid_total) %<-% generator(type = "validation")
+attr(valid_gen, "name") <- "valid"
+
 c(test_gen, test_total) %<-% generator(type = "test")
+attr(test_gen, "name") <- "test"
 
 cat(
   paste0(
@@ -45,7 +50,7 @@ with_custom_object_scope(c(metric_binary_crossentropy_1elem =  binary_crossentro
                                layer_separable_conv_2d(filter = 32, kernel_size = c(7, 7)) %>%
                                layer_activation("relu") %>%
                                layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-                               #layer_dropout(0.25) %>%
+                               layer_dropout(0.25) %>%
                                
                                layer_separable_conv_2d(filter = 64,
                                                        kernel_size = c(9, 9),
@@ -55,12 +60,12 @@ with_custom_object_scope(c(metric_binary_crossentropy_1elem =  binary_crossentro
                                layer_separable_conv_2d(filter = 64, kernel_size = c(11, 11)) %>%
                                layer_activation("relu") %>%
                                layer_max_pooling_2d(pool_size = c(2, 2)) %>%
-                               #layer_dropout(0.25) %>%
+                               layer_dropout(0.25) %>%
                                
                                layer_flatten() %>%
                                layer_dense(512) %>%
                                layer_activation("relu") %>%
-                               #layer_dropout(0.5) %>%
+                               layer_dropout(0.25) %>%
                                
                                layer_dense(yhat_size)
                              
@@ -77,8 +82,8 @@ with_custom_object_scope(c(metric_binary_crossentropy_1elem =  binary_crossentro
                                validation_data = valid_gen,
                                validation_steps = valid_total / batch_size,
                                callbacks = list(
-                                 callback_early_stopping(patience = 3),
-                                 callback_reduce_lr_on_plateau(patience = 2)
+                                 callback_early_stopping(patience = 10),
+                                 callback_reduce_lr_on_plateau(patience = 5)
                                  # ,
                                  # callback_tensorboard(log_dir = "/tmp/tensorboard",
                                  #                     histogram_freq = 5,
@@ -96,24 +101,37 @@ with_custom_object_scope(c(metric_binary_crossentropy_1elem =  binary_crossentro
                              model <- load_model_hdf5(model_name)
                              model %>% summary()
                            }
+                           
+                           for (g in c(train_gen, valid_gen, test_gen)) {
+                             
+                             print(paste0("Evaluating on batch: ", attr(g, "name")))
+                             
+                             samples <- g()
+                             xs <- samples[[1]]
+                             ys <- samples[[2]]
+                             yhats <- model %>% predict_on_batch(xs)
+                             for (i in 1:(nrow(ys))) {
+                               plot_with_boxes(xs[i, , ,], ys[i,], yhats[i,], paste0(attr(g, "name"), ": ", i))
+                             }
+                             
+                             
+                             # evaluate class predictions
+                             true_classes <- ys[, 1]
+                             class_preds <- yhats[, 1]
+                             print(class_preds)
+                             class_preds <- ifelse(class_preds > 0.5, 1, 0)
+                             print(class_preds)
+                             print(table(true_classes, class_preds))
+                             
+                             model %>% test_on_batch(xs, ys) %>% print()
+                             
+                           }
+                           
+                           
+                           # tbd
+                           # define metric intersection over union
+                           
+                           #model %>% evaluate_generator(test_gen, steps = test_total) 
+                           
                          })
-test_images <- test_gen()
-xs <- test_images[[1]]
-ys <- test_images[[2]]
-yhats <- model %>% predict_on_batch(xs)
-for (i in 1:(nrow(ys))) {
-  plot_with_boxes(xs[i, , ,], ys[i,], yhats[i,])
-}
 
-# evaluate class predictions
-true_classes <- ys[, 1]
-class_preds <- yhats[, 1]
-class_preds
-class_preds <- ifelse(class_preds > 0.5, 1, 0)
-class_preds
-table(true_classes, class_preds)
-
-# tbd
-# define metric intersection over union
-
-model %>% evaluate_generator(test_gen, steps = test_total)

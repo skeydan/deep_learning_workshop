@@ -11,12 +11,12 @@ source("build_generator.R")
 target_width <- 224
 target_height <- 224     
 
-plot_with_boxes <- function(img, y, yhat = NULL) {
+plot_with_boxes <- function(img, y, yhat = NULL, title = NULL) {
   
   img <- img/255.001
   img <- as.raster(img)
   
-  true_box <- y[2:5]
+  true_box <- if (length(y) == 5) y[2:5] else y
   # transpose to usual cartesian coordinate system
   true_box <- c(true_box[1:2], target_height - true_box[3], target_height - true_box[4])
   # construct dataframe for geom_path
@@ -36,13 +36,17 @@ plot_with_boxes <- function(img, y, yhat = NULL) {
     labs(x=NULL, y=NULL)
   
   if (!is.null(yhat)) {
-    estimated_box <- yhat[2:5]
+    estimated_box <- if(length(yhat) == 5) yhat[2:5] else yhat
     estimated_box <- c(estimated_box[1:2], target_height - estimated_box[3], target_height - estimated_box[4])
     estimated_box <- data.frame(xs = c(estimated_box[1], estimated_box[1], estimated_box[2],
                                        estimated_box[2], estimated_box[1]),
                                 ys = c(estimated_box[4], estimated_box[3], estimated_box[3],
                                        estimated_box[4], estimated_box[4]))
     g <- g + geom_path(data = estimated_box,  aes(x = xs, y = ys), color = "cyan", size = 1)
+  }
+  
+  if (!is.null(title)) {
+    g <- g + ggtitle(title)
   }
   print(g)
 }
