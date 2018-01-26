@@ -3,4 +3,6 @@
 .RData
 .Ruserdata
 */*.hdf5
-
+*/*.tar.gz
+*/*.zip
+*/*.csv

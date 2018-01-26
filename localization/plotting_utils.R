@@ -6,7 +6,7 @@ library(rprojroot)
 
 setwd(file.path(find_root(criterion = is_rstudio_project), "localization"))
 
-source("build_generator.R")
+source("image_generator.R")
  
 target_width <- 224
 target_height <- 224     
@@ -16,8 +16,11 @@ plot_with_boxes <- function(img, y, yhat = NULL, title = NULL) {
   img <- img/255.001
   img <- as.raster(img)
   
+  # remove class code from the vector
   true_box <- if (length(y) == 5) y[2:5] else y
-  # transpose to usual cartesian coordinate system
+  
+  # the [xmin, xmax, ymin, ymax] coordinates refer to a coordinate system where (0,0) is on the top left
+  # transpose to usual cartesian coordinate system for plotting
   true_box <- c(true_box[1:2], target_height - true_box[3], target_height - true_box[4])
   # construct dataframe for geom_path
   true_box <- data.frame(xs = c(true_box[1], true_box[1], true_box[2],

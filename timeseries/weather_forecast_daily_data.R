@@ -5,6 +5,7 @@ library(keras)
 library(zoo)
 library(rprojroot)
 library(lubridate)
+library(stringr)
 
 setwd(file.path(find_root(criterion = is_rstudio_project), "timeseries"))
 source("timeseries_generator.R")
@@ -67,6 +68,20 @@ ggplot(df, aes(x = precip_ind)) + geom_histogram()
 ggplot(df, aes(x = avg_temp)) + geom_histogram() + facet_wrap(~ precip_ind)
 
 
+
+# Missing values ----------------------------------------------------------
+
+summary(df)
+df %>% summarise_all(funs(num_nas = sum(is.na(.)))) %>%
+  gather(key = "variable", value = "num_NA") %>% 
+  mutate(variable = str_sub(variable, end = -9)) %>%
+  arrange(desc(num_NA))
+
+# fill with last known value
+df <- df %>% fill(1:19)
+summary(df)
+
+
 # Data preprocessing ------------------------------------------------------
 
 data <- data.matrix(df[ , -c(1, 17, 18)])
@@ -123,29 +138,32 @@ test_gen <- generator(
 train_steps <- (valid_start - 1 - train_start - lookback) / batch_size
 val_steps <- (test_start - 1 - valid_start - lookback) / batch_size
 test_steps <- (nrow(data) - test_start - lookback) / batch_size
-
+c(train_steps, val_steps, test_steps)
 
 # Baselines ---------------------------------------------------------------
 
 # a common-sense baseline
-baseline_mae <- function() {
+baseline_mae <- function(target_position) {
   batch_maes <- c()
   for (step in 1:val_steps) {
     c(samples, targets) %<-% val_gen()
-    preds <- samples[ ,dim(samples)[[2]],2] # just take the current temperature and predict this for 24 hours later 
+    preds <- samples[ ,dim(samples)[[2]],target_position] # just take the current temperature and predict this for 24 hours later 
     mae <- mean(abs(preds - targets))
     batch_maes <- c(batch_maes, mae)
   }
-  print(mean(batch_maes))
+  mean(batch_maes)
 }
 
-common_sense <- baseline_mae() #0.39
-cat("Common sense MAE: ", common_sense * std[2], " degrees C")
+common_sense <- baseline_mae(1) # avg temperature is in position 1
+common_sense # 0.216
+cat("Common sense MAE: ", common_sense * std[2], " degrees C") # 1.8
 
 
 # a simple densely connected network as baseline
 model_name <- "MLP"
-n_epochs <- 10
+model_exists <- TRUE
+n_epochs <- 50
+
 model <- keras_model_sequential() %>% 
   layer_flatten(input_shape = c(lookback / step, dim(data)[-1])) %>% 
   layer_dense(units = 32, activation = "relu") %>% 
@@ -155,16 +173,30 @@ model %>% compile(
   optimizer = optimizer_rmsprop(),
   loss = "mae"
 )
+if (!model_exists) {
+  history <- model %>% fit_generator(
+    train_gen,
+    steps_per_epoch = train_steps,
+    epochs = n_epochs,
+    validation_data = val_gen,
+    validation_steps = val_steps,
+    callbacks = list(
+      callback_early_stopping(patience = 10),
+      callback_reduce_lr_on_plateau(patience = 5),
+      callback_model_checkpoint(filepath = paste0(
+        model_name,
+        "-{epoch:02d}-{val_loss:.2f}.hdf5"),
+        periods = 10)))
+  
+  plot(history) + geom_hline(yintercept = common_sense, color = "blue") + ggtitle(paste0(model_name, ", ", n_epochs, " epochs"))
+  model %>% save_model_hdf5(paste0(model_name, "_", n_epochs, "_epochs.hdf5"))
+  
+} else {
+  model <- load_model_hdf5(paste0(model_name, "_", n_epochs, "_epochs.hdf5"))
+}
 
-history <- model %>% fit_generator(
-  train_gen,
-  steps_per_epoch = train_steps,
-  epochs = n_epochs,
-  validation_data = val_gen,
-  validation_steps = val_steps
-)
+model %>% summary()
 
-plot(history) + geom_hline(yintercept = common_sense, color = "blue") + ggtitle(paste0(model_name, ", ", n_epochs, " epochs"))
-model %>% save_model_hdf5(paste0(model_name, "_", n_epochs, "_epochs.hdf5"))
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.92
+test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) 
+test_loss #0.219
 

@@ -21,6 +21,11 @@ target_height <- 224
 batch_size <- 10
 class_ids <- image_classes
 
+# returns a list of <batchsize> images and corresponding annotations
+# if the net has a single output, returns a list of (x,y) where y consists of vectors [class_code, xmin, xmax, ymin, ymax]
+# if the net has two outputs, returns a list(x, list(y1,y2)) where y1 comprises the class codes and y2 consists of vectors [xmin, xmax, ymin, ymax]
+# the [xmin, xmax, ymin, ymax] coordinates refer to a coordinate system where (0,0) is on the top left
+
 generator <- function(type = "train", two_outputs = FALSE, debug = FALSE, inception = FALSE) {
   
   c(annotation_dir, image_dir) %<-% if(type == "train") {
