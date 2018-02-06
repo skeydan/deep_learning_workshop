@@ -1,4 +1,5 @@
 library(keras)
+library(tensorflow)
 library(rprojroot)
 
 setwd(file.path(find_root(criterion = is_rstudio_project), "localization"))
@@ -11,7 +12,7 @@ model_exists <- FALSE
 model_name <- "cnn_single_output"
 
 yhat_size <- if (length(image_classes) == 2) 1 + 4 else (length(image_classes) + 4)
-num_epochs <- 100
+num_epochs <- 50
 
 c(train_gen, train_total) %<-% generator(type = "train")
 attr(train_gen, "name") <- "train"
@@ -107,22 +108,22 @@ with_custom_object_scope(c(metric_binary_crossentropy_1elem =  binary_crossentro
                            }
                            
                            for (g in c(train_gen, valid_gen, test_gen)) {
-                             
+
                              cat(paste0("\n========== Evaluating on batch: ",
                                           attr(g, "name"),
                                           " ==========\n\n"))
-                             
+
                              samples <- g()
                              xs <- samples[[1]]
                              ys <- samples[[2]]
                              yhats <- model %>% predict_on_batch(xs)
-                             
+
                              for (i in 1:(nrow(ys))) {
                                iou <- iou_single_output(K$expand_dims(ys[i, ], axis = -2L), K$expand_dims(yhats[i, ], axis = -2L))
                                iou <- k_get_session()$run(iou)
                                plot_with_boxes(xs[i, , ,], ys[i,], yhats[i,],paste0(attr(g, "name"), ": ", i, "   (IOU: ", round(iou, 2), ")"))
                              }
-                             
+
                              # evaluate class predictions (on one batch)
                              cat("Class probabilities:\n")
                              true_classes <- ys[, 1]
@@ -131,15 +132,16 @@ with_custom_object_scope(c(metric_binary_crossentropy_1elem =  binary_crossentro
                              class_preds <- ifelse(class_preds > 0.5, 1, 0)
                              cat("\nCross tab:\n")
                              print(table(true_classes, class_preds))
-                             
+
                              # evaluate overall (on one batch)
                              cat("\nMetrics:\n")
                              model %>% test_on_batch(xs, ys) %>% print()
-                             
+
                              # evaluate on complete test set
                              #cat("Evaluation on whole test set:\n")
-                             #model %>% evaluate_generator(test_gen, steps = test_total) 
+                             #model %>% evaluate_generator(test_gen, steps = test_total)
                            }
                            
                          })
+
 

@@ -7,10 +7,11 @@ binary_crossentropy_1elem <- function(ys, yhats) {
 }
 
 # intersection over union
-iou_single_output <- function(ys, yhats) {
+iou_single_output <- function(ys_, yhats_) {
   # remove class code if it's part of ys/yhats (single-output models)
-  ys <- ys[ ,2:5] 
-  yhats <- yhats[ ,2:5] 
+  # important: use tf$slice instead of indexing because with indexing, results differ when calling from user code resp. keras
+  ys <- tf$slice(ys_, begin = c(0L, 1L), size = c(-1L,4L))
+  yhats <- tf$slice(yhats_, begin = c(0L, 1L), size = c(-1L,4L))
   # reminder: the [xmin, xmax, ymin, ymax] coordinates refer to a coordinate system where (0,0) is on the top left
   intersection_xmin <- K$maximum(ys[ ,1], yhats[ ,1])
   intersection_xmax <- K$minimum(ys[ ,2], yhats[ ,2])
@@ -22,7 +23,6 @@ iou_single_output <- function(ys, yhats) {
   area_union <- area_y + area_yhat - area_intersection
   iou <- area_intersection/area_union
   K$mean(iou)
-  
 }
 
 
