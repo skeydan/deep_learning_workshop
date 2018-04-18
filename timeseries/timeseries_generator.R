@@ -24,15 +24,18 @@ generator <- function(data, target_position = 2, lookback, delay, min_index, max
       i <<- i + length(rows)
     }
     
-    samples <- array(0, dim = c(length(rows), 
-                                lookback / step,
-                                dim(data)[[-1]]))
-    targets <- array(0, dim = c(length(rows)))
+    samples <- array(0, dim = c(length(rows),     # sample dimension 
+                                lookback / step,  # timesteps
+                                dim(data)[[-1]])) # number of variables (features)
+    targets <- array(0, dim = c(length(rows)))    # target is one-dimensional
     
     for (j in 1:length(rows)) {
+      # create predictors, starting from earliest lookback time to sampled end time, spaced by step size
+      # here length.out allows for downsampling so we just get hourly predictors
       indices <- seq(rows[[j]] - lookback, rows[[j]], 
-                     length.out = dim(samples)[[2]]) # length.out allows for downsampling
+                     length.out = dim(samples)[[2]]) 
       samples[j,,] <- data[indices,]
+      # create targets
       targets[[j]] <- data[rows[[j]] + delay, target_position] 
     }            
     
