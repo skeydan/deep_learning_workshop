@@ -248,7 +248,7 @@ compare_df[1:10, ]
 compare_df <- compare_df %>% mutate(ind = row_number())
 compare_df %>% gather(key = "key", value="value", -ind) %>% ggplot(aes(x = ind, y = value, color = key)) + geom_line()
 
-compare_ts <- zoo(compare_df)
+compare_ts <- zoo(compare_df[1:2], order.by = compare_df$ind)
 compare_ts %>% autoplot()
 
                          

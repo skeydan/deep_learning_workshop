@@ -7,8 +7,8 @@
 # batch_size – The number of samples per batch.
 # step – The period, in timesteps, at which you sample data. You’ll set it 6 in order to draw one data point every hour.
 
-generator <- function(data, target_position = 2, lookback, delay, min_index, max_index,
-                      shuffle = FALSE, batch_size = 128, step = 6) {
+generator <- function(data, target_position, lookback, delay, min_index, max_index,
+                      shuffle, batch_size, step) {
   
   if (is.null(max_index))
     max_index <- nrow(data) - delay - 1

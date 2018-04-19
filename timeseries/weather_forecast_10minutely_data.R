@@ -7,6 +7,10 @@ library(readr)
 library(ggplot2)
 library(lubridate)
 library(dplyr)
+library(purrr)
+library(tidyr)
+library(zoo)
+library(stringr)
 
 
 setwd(file.path(find_root(criterion = is_rstudio_project), "timeseries"))
@@ -35,6 +39,11 @@ train_data <- data[1:200000,]
 mean <- apply(train_data, 2, mean)
 std <- apply(train_data, 2, sd)
 data <- scale(data, center = mean, scale = std)
+
+# we will need this later
+unscale <- function(vec, mean, sd) {
+  vec * sd + mean
+}
 
 # data generators
 # we have 10-minutely data
@@ -68,6 +77,7 @@ val_gen = generator(
   delay = delay,
   min_index = valid_start,
   max_index = test_start - 1,
+  shuffle = TRUE,
   step = step,
   batch_size = batch_size
 )
@@ -78,6 +88,7 @@ test_gen <- generator(
   delay = delay,
   min_index = test_start,
   max_index = NULL,
+  shuffle = TRUE,
   step = step,
   batch_size = batch_size
 )
@@ -125,7 +136,7 @@ model <- keras_model_sequential() %>%
 model %>% summary()
 
 model %>% compile(
-  optimizer = optimizer_rmsprop(),
+  optimizer = optimizer_adam(),
   loss = "mae"
 )
 
@@ -148,7 +159,7 @@ if (!file.exists(model_file)) {
   model <- load_model_hdf5(model_file)
 }
 
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.92
+test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) 
 
 cat(model_name, ": MAE: ", test_loss * std[target_position], " degrees C")
 
@@ -167,7 +178,7 @@ model <- keras_model_sequential() %>%
 model %>% summary()
 
 model %>% compile(
-  optimizer = optimizer_rmsprop(),
+  optimizer = optimizer_adam(),
   loss = "mae"
 )
 
@@ -187,11 +198,11 @@ if (!file.exists(model_file)) {
   model %>% save_model_hdf5(model_file)
   
 } else {
-  save_model_weights_hdf5(model_file)
+  model <- load_model_hdf5(model_file)
 }
 
 
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.33
+test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) 
 cat(model_name, ": MAE: ", test_loss * std[2], " degrees C")
 
 
@@ -212,7 +223,7 @@ model <- keras_model_sequential() %>%
 model %>% summary()
 
 model %>% compile(
-  optimizer = optimizer_rmsprop(),
+  optimizer = optimizer_adam(),
   loss = "mae"
 )
 
@@ -232,10 +243,10 @@ if (!file.exists(model_file)) {
   model %>% save_model_hdf5(model_file)
   
 } else {
-  save_model_hdf5(model_file)
+  model <- load_model_hdf5(model_file)
 }
 
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.28
+test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) 
 cat(model_name, ": MAE: ", test_loss * std[2], " degrees C")
 
 
@@ -261,7 +272,7 @@ model <- keras_model_sequential() %>%
 model %>% summary()
 
 model %>% compile(
-  optimizer = optimizer_rmsprop(),
+  optimizer = optimizer_adam(),
   loss = "mae"
 )
 
@@ -281,17 +292,17 @@ if (!file.exists(model_file)) {
   model %>% save_model_hdf5(model_file)
   
 } else {
-  save_model_hdf5(model_file)
+  model <- load_model_hdf5(model_file)
 }
 
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.28
+test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) 
 cat(model_name, ": MAE: ", test_loss * std[2], " degrees C")
 
 
 # LSTM --------------------------------------------------------------------
 
 model_name <- "LSTM_dropout"
-n_epochs <- 20
+n_epochs <- 10
 model_file <- paste0(model_name, "_", n_epochs, "_epochs.hdf5")
 
 
@@ -303,7 +314,7 @@ model <- keras_model_sequential() %>%
 model %>% summary()
 
 model %>% compile(
-  optimizer = optimizer_rmsprop(),
+  optimizer = optimizer_adam(),
   loss = "mae"
 )
 
@@ -322,67 +333,19 @@ if (!file.exists(model_file)) {
   model %>% save_model_hdf5(model_file)
   
 } else {
-  save_model_hdf5(model_file)
+  model <- load_model_hdf5(model_file)
 }
 
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.54
+test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) 
 
-cat(model_name, ": MAE: ", test_loss * std[2], " degrees C")
-
-
-# Stacked LSTM ----------------------------------------
-
-model_name <- "LSTM_2layers"
-n_epochs <- 20
-model_file <- paste0(model_name, "_", n_epochs, "_epochs.hdf5")
-
-
-model <- keras_model_sequential() %>% 
-  layer_lstm(units = 32, 
-            dropout = 0.1, 
-            recurrent_dropout = 0.5,
-            return_sequences = TRUE,
-            input_shape = list(NULL, dim(data)[[-1]])) %>% 
-  layer_lstm(units = 64, activation = "relu",
-            dropout = 0.1,
-            recurrent_dropout = 0.5) %>% 
-  layer_dense(units = 1)
-
-model %>% summary()
-
-model %>% compile(
-  optimizer = optimizer_rmsprop(),
-  loss = "mae"
-)
-
-if (!file.exists(model_file)) {
-  
-  history <- model %>% fit_generator(
-    train_gen,
-    steps_per_epoch = train_steps,
-    epochs = n_epochs,
-    validation_data = val_gen,
-    validation_steps = val_steps
-  )
-  
-  p <- plot(history) + geom_hline(yintercept = common_sense, color = "cyan") + ggtitle(paste0(model_name, ", ", n_epochs, " epochs"))
-  ggsave(str_replace(model_file, "hdf5", "png"), p)
-  plot(p)
-  model %>% save_model_hdf5(model_file)  
-  
-} else {
-  save_model_hdf5(model_file)
-}
-
-test_loss <- model %>% evaluate_generator(test_gen, steps = test_steps) # 0.92
 cat(model_name, ": MAE: ", test_loss * std[2], " degrees C")
 
 
 # Look at predictions -----------------------------------------------------
 
 # one continuous batch of test data
-batch_size <- nrow(data) - test_start - lookback - delay
-test_gen <- generator(
+batch_size_pred <- nrow(data) - test_start - lookback - delay
+test_gen_pred <- generator(
   data,
   target_position = target_position,
   lookback = lookback,
@@ -390,27 +353,27 @@ test_gen <- generator(
   min_index = test_start,
   max_index = NULL,
   step = step,
-  batch_size = batch_size,
+  batch_size = batch_size_pred,
   shuffle = FALSE
 )
 
-c(samples, targets) %<-% test_gen()
+c(samples, targets) %<-% test_gen_pred()
 dim(samples)
 dim(targets)
 
 batch_preds <- model %>% predict_on_batch(samples)
 batch_preds[1:10]
 
-compare_df <- data.frame(actual = c(samples[ , 10, target_position], NA)) %>%
-  bind_cols(pred = c(NA, batch_preds))
-compare_df[1:10, ]
+compare_df <- data.frame(actual = c(samples[ , dim(samples)[2], target_position], rep(NA, lookback))) %>%
+  bind_cols(pred = c(rep(NA, lookback), batch_preds))
+compare_df[1440:1450, ]
 
 compare_df <- compare_df %>% map_df(function (vec) unscale(vec, mean[target_position], std[target_position]))
-compare_df[1:10, ]
+compare_df[1440:1450, ]
 compare_df <- compare_df %>% mutate(ind = row_number())
 compare_df %>% gather(key = "key", value="value", -ind) %>% ggplot(aes(x = ind, y = value, color = key)) + geom_line()
 
-compare_ts <- zoo(compare_df)
+compare_ts <- zoo(compare_df[1:2], order.by = compare_df$ind)
 compare_ts %>% autoplot()
 
 
