@@ -57,36 +57,36 @@ plot_with_boxes <- function(img, y, yhat = NULL, title = NULL) {
 
 # example usage -----------------------------------------------------------
 
-c(g, size_total) %<-% generator()
-c(x, y) %<-% g() 
-img <- x[1, , , ]
-#plot_with_boxes(img, y[1, ])
-
-random_annotations <- c(rbinom(1, 1, 0.5), replicate(4, runif(1,0,224)))
-#plot_with_boxes(img, y[1, ], random_annotations)
+# c(g, size_total) %<-% generator()
+# c(x, y) %<-% g() 
+# img <- x[1, , , ]
+# plot_with_boxes(img, y[1, ])
+# 
+# random_annotations <- c(rbinom(1, 1, 0.5), replicate(4, runif(1,0,224)))
+# plot_with_boxes(img, y[1, ], random_annotations)
 
 
 
 # playground --------------------------------------------------------------
 
-c(g, size_total) %<-% generator()
-c(x, y) %<-% g() 
-img <- x[1, , , ]
-img <- img/255.00001 
-img <- as.raster(img)
-
-
-box <- y[1, 2:5]
-box_cartesian <- c(box[1:2], target_height - box[3], target_height - box[4])
-box_df <- data.frame(xs = c(box_cartesian[1], box_cartesian[1], box_cartesian[2],
-                            box_cartesian[2], box_cartesian[1]),
-                     ys = c(box_cartesian[4], box_cartesian[3], box_cartesian[3],
-                            box_cartesian[4], box_cartesian[4]))
-box_df
-
+# c(g, size_total) %<-% generator()
+# c(x, y) %<-% g() 
+# img <- x[1, , , ]
+# img <- img/255.00001 
+# img <- as.raster(img)
+# 
+# 
+# box <- y[1, 2:5]
+# box_cartesian <- c(box[1:2], target_height - box[3], target_height - box[4])
+# box_df <- data.frame(xs = c(box_cartesian[1], box_cartesian[1], box_cartesian[2],
+#                             box_cartesian[2], box_cartesian[1]),
+#                      ys = c(box_cartesian[4], box_cartesian[3], box_cartesian[3],
+#                             box_cartesian[4], box_cartesian[4]))
+# box_df
+# 
 # ggplot(box_df, aes(x = xs, y = ys)) +
 #   annotation_raster(img, 0, target_width, 0, target_height) +
-#   geom_path(color = "yellow", size = 1) + 
+#   geom_path(color = "yellow", size = 1) +
 #   theme(aspect.ratio = 1, axis.ticks = element_blank(), axis.text.x = element_blank(),
 #         axis.text.y = element_blank()) +
 #   coord_cartesian(xlim = c(0, target_width), ylim = c(0, target_height))  +

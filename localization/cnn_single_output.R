@@ -131,7 +131,7 @@ model
 
 for (g in c(train_gen, valid_gen, test_gen)) {
   cat(paste0(
-    "\n========== Evaluating on batch: ",
+    "\n========== Evaluating on single batch from set: ",
     attr(g, "name"),
     " ==========\n\n"
   ))
@@ -146,8 +146,8 @@ for (g in c(train_gen, valid_gen, test_gen)) {
   
   for (i in 1:(nrow(ys))) {
     iou <-
-      iou_single_output(K$expand_dims(ys[i,], axis = -2L),
-                        K$expand_dims(yhats[i,], axis = -2L))
+      iou_single_output(ys[i,] %>% k_constant(shape = c(1,5)),
+                        yhats[i,] %>% k_constant(shape = c(1,5)))
     iou <- k_get_session()$run(iou)
     plot_with_boxes(xs[i, , , ], ys[i, ], yhats[i, ], paste0(attr(g, "name"), ": ", i, "   (IOU: ", round(iou, 2), ")"))
   }
@@ -165,8 +165,8 @@ for (g in c(train_gen, valid_gen, test_gen)) {
   # evaluate overall (on one batch)
   cat("\nMetrics:\n")
   model %>% test_on_batch(xs, ys) %>% print()
-  
-  # evaluate on complete test set
-  #cat("Evaluation on whole test set:\n")
-  #model %>% evaluate_generator(test_gen, steps = test_total)
 }
+
+# evaluate on complete test set
+#cat("Evaluation on whole test set:\n")
+#model %>% evaluate_generator(test_gen, steps = test_total)
